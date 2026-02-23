@@ -1,11 +1,10 @@
-## 🛡️ Configuração de Segurança (Variáveis de Ambiente)
+# 🧠 NEXUS LIFE OS - Gateway Neural
 
-Por motivos de segurança, chaves de API e bancos de dados não são versionados neste repositório.
+O NEXUS é um "Sistema Operacional para a Vida" impulsionado por IA (Gemini). Ele consolida gestão de tarefas (Chronos), finanças (Treasury), conhecimento (Library) e gamificação (RPG) em uma arquitetura limpa de agentes locais.
 
-1. Na raiz do projeto, duplique o arquivo de exemplo:
-   `cp .env.example .env`
-2. Adicione suas chaves reais (ex: `GEMINI_API_KEY`) no arquivo `.env` gerado.
-3. Repita o processo na pasta do frontend:
-   `cp nexus-ui/.env.example nexus-ui/.env`
-   
-Seus dados locais (arquivos `.db` e diretórios de notas) já estão protegidos pelo `.gitignore`.
+## 🛠️ Setup e Instalação
+
+1. Clone o repositório e crie o ambiente virtual:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # ou .venv\Scripts\activate no Windows
