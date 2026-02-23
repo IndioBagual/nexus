@@ -5,3 +5,4 @@ google-genai
 python-dotenv
 apscheduler
 python-slugify
+pydantic-settings

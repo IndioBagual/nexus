@@ -1,4 +1,3 @@
-
 import requests
 
 # Cores para o terminal (funciona na maioria dos terminais modernos)

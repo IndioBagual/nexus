@@ -1,8 +1,14 @@
 import datetime
 import json
+import logging
 import os
 import sqlite3
 from contextlib import asynccontextmanager
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
@@ -12,13 +18,14 @@ from pydantic import BaseModel
 
 from nexus.adapters.manager import AdapterManager
 from nexus.adapters.plugins.mock_calendar import MockCalendarAdapter
+from nexus.config.settings import settings
 from nexus.cortex.brain import CortexBrain
 from nexus.cortex.client import APIClient
 from nexus.cortex.memory import MemoryEngine
 
 load_dotenv()
 
-DB_PATH = "nexus_simulado.db"
+DB_PATH = settings.nexus_db_path
 
 
 def cleanup_expired_proposals():
@@ -109,7 +116,7 @@ def chat(req: ChatRequest):
 
 @app.post("/cortex/ingest")
 def ingest(req: IngestRequest):
-    notes_path = os.path.join("data", "library", "inbox")
+    notes_path = settings.nexus_notes_dir
     count = 0
     if os.path.exists(notes_path):
         for f in os.listdir(notes_path):

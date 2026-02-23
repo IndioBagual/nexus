@@ -1,8 +1,10 @@
 import logging
-from typing import Callable, List, Dict
+from typing import Callable, Dict, List
+
 from nexus.domain.events import Event
 
 logger = logging.getLogger(__name__)
+
 
 class EventBus:
     def __init__(self):
