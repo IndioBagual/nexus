@@ -1,0 +1,25 @@
+# ----------------------------------------------------------------------
+# NEXUS SECURE GITIGNORE
+# ----------------------------------------------------------------------
+
+# Secrets & Env Vars
+.env
+.env.*
+!.env.example
+
+# Databases (State)
+*.db
+*.sqlite
+*.sqlite3
+
+# Caches & Virtual Environments
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+
+# Personal Knowledge & Runtime Data
+notes_a/
+notes_b/
+data/
