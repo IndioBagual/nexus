@@ -1,6 +1,13 @@
 import unittest
+
 # Deve apontar para o pacote nexus
-from nexus.domain.rpg_engine import RPGEngine, RPGAttribute, EVENT_RPG_LEVEL_UP, EVENT_RPG_XP_GAINED
+from nexus.domain.rpg_engine import (
+    EVENT_RPG_LEVEL_UP,
+    EVENT_RPG_XP_GAINED,
+    RPGAttribute,
+    RPGEngine,
+)
+
 
 class TestRPGEngine(unittest.TestCase):
     def setUp(self):
@@ -18,7 +25,7 @@ class TestRPGEngine(unittest.TestCase):
     def test_xp_gain_no_level_up(self):
         attr = RPGAttribute(name="STR", total_xp=0, current_level=1)
         events = self.engine.process_xp_gain(attr, 50)
-        
+
         self.assertEqual(attr.total_xp, 50)
         self.assertEqual(attr.current_level, 1)
         self.assertEqual(len(events), 1)
@@ -28,12 +35,13 @@ class TestRPGEngine(unittest.TestCase):
         attr = RPGAttribute(name="INT", total_xp=90, current_level=1)
         # Ganha 20 XP (Total 110) -> Deve ir para Nível 2
         events = self.engine.process_xp_gain(attr, 20)
-        
+
         self.assertEqual(attr.total_xp, 110)
         self.assertEqual(attr.current_level, 2)
         self.assertEqual(len(events), 2)
         self.assertEqual(events[1].name, EVENT_RPG_LEVEL_UP)
-        self.assertEqual(events[1].payload['new_level'], 2)
+        self.assertEqual(events[1].payload["new_level"], 2)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

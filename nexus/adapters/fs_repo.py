@@ -1,8 +1,11 @@
 import os
 from datetime import datetime
-from slugify import slugify # pip install python-slugify
-from nexus.domain.ports import NoteRepository
+
+from slugify import slugify  # pip install python-slugify
+
 from nexus.domain.entities import Note
+from nexus.domain.ports import NoteRepository
+
 
 class MarkdownFileAdapter(NoteRepository):
     def __init__(self, root_dir: str):
@@ -23,8 +26,8 @@ tags: {note.tags}
 ---
 """
         content = f"{frontmatter}\n# {note.title}\n\n{note.content}"
-        
+
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
-            
+
         return filepath

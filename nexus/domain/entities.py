@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
+
 @dataclass
 class Expense:
     amount: float
@@ -11,6 +12,7 @@ class Expense:
     id: int = None
     created_at: datetime = field(default_factory=datetime.now)
 
+
 @dataclass
 class Task:
     title: str
@@ -19,6 +21,7 @@ class Task:
     due_date: str = None
     id: int = None
     created_at: datetime = field(default_factory=datetime.now)
+
 
 @dataclass
 class Note:

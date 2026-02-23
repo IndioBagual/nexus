@@ -1,13 +1,15 @@
-import sqlite3
 import json
-import uuid
 import os
+import sqlite3
+import uuid
 from datetime import datetime
+
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv
 
 load_dotenv()
+
 
 class SuggestionEngine:
     def __init__(self, db_path="nexus_simulado.db"):
@@ -15,11 +17,11 @@ class SuggestionEngine:
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._setup()
-        
+
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("GOOGLE_API_KEY não encontrada.")
-        
+
         self.client = genai.Client(api_key=api_key)
         self.model_id = "gemini-2.5-flash"
 
@@ -42,7 +44,9 @@ class SuggestionEngine:
 
     def generate_proposals(self):
         """Lê eventos analíticos não processados e pede sugestões ao LLM."""
-        cursor = self.conn.execute("SELECT * FROM analytical_events WHERE processed = 0")
+        cursor = self.conn.execute(
+            "SELECT * FROM analytical_events WHERE processed = 0"
+        )
         events = cursor.fetchall()
 
         if not events:
@@ -82,40 +86,49 @@ class SuggestionEngine:
                     config=types.GenerateContentConfig(
                         system_instruction=sys_prompt,
                         response_mime_type="application/json",
-                        temperature=0.3 # Baixa temperatura para manter a lógica precisa
-                    )
+                        temperature=0.3,  # Baixa temperatura para manter a lógica precisa
+                    ),
                 )
-                
+
                 suggestion = json.loads(response.text)
                 proposal_id = f"prop_{uuid.uuid4().hex[:12]}"
                 now = datetime.utcnow().isoformat() + "Z"
 
                 # Salva a proposta na fila de aprovação
-                self.conn.execute("""
+                self.conn.execute(
+                    """
                     INSERT INTO proposed_actions 
                     (id, source_event_id, category, title, context_explanation, tool_name, payload, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    proposal_id, 
-                    event['id'], 
-                    suggestion['category'], 
-                    suggestion['title'], 
-                    suggestion['context_explanation'], 
-                    suggestion['tool_name'], 
-                    json.dumps(suggestion['payload']), 
-                    now
-                ))
+                """,
+                    (
+                        proposal_id,
+                        event["id"],
+                        suggestion["category"],
+                        suggestion["title"],
+                        suggestion["context_explanation"],
+                        suggestion["tool_name"],
+                        json.dumps(suggestion["payload"]),
+                        now,
+                    ),
+                )
 
                 # Marca o evento original como processado
-                self.conn.execute("UPDATE analytical_events SET processed = 1 WHERE id = ?", (event['id'],))
+                self.conn.execute(
+                    "UPDATE analytical_events SET processed = 1 WHERE id = ?",
+                    (event["id"],),
+                )
                 self.conn.commit()
 
-                print(f"✨ Proposta Gerada: {suggestion['title']} (Aguardando Aprovação)")
+                print(
+                    f"✨ Proposta Gerada: {suggestion['title']} (Aguardando Aprovação)"
+                )
 
             except Exception as e:
                 print(f"❌ Erro ao gerar proposta para o evento {event['id']}: {e}")
 
         self.conn.close()
+
 
 if __name__ == "__main__":
     engine = SuggestionEngine(db_path="nexus_simulado.db")

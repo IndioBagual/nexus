@@ -1,0 +1,43 @@
+[tool.black]
+line-length = 88
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.pytest_cache
+  | __pycache__
+  | node_modules
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip = [".git", ".venv", "__pycache__", "node_modules"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+]
+
+[tool.ruff.lint]
+# E: pycodestyle errors
+# F: pyflakes
+# I: isort (usado pelo ruff internamente também)
+# UP: pyupgrade (atualiza sintaxe antiga para nova automaticamente)
+select = ["E", "F", "I", "UP"]
+
+# Ignora erros de linha muito longa (E501), pois o Black já cuida disso no format
+# Ignora F401 (imports não usados) temporariamente caso gere muito ruído no MVP
+ignore = ["E501"] 
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

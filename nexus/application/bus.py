@@ -1,9 +1,11 @@
-from typing import Callable, List, Dict
+from collections.abc import Callable
+
 from nexus.domain.events import Event
+
 
 class EventBus:
     def __init__(self):
-        self._listeners: Dict[str, List[Callable[[Event], None]]] = {}
+        self._listeners: dict[str, list[Callable[[Event], None]]] = {}
 
     def subscribe(self, event_name: str, callback: Callable[[Event], None]):
         if event_name not in self._listeners:

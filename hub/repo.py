@@ -1,5 +1,6 @@
-import sqlite3
 import json
+import sqlite3
+
 
 class HubRepo:
     def __init__(self, db_path="hub.db"):
@@ -28,13 +29,24 @@ class HubRepo:
         for op in ops:
             try:
                 # INSERT OR IGNORE garante idempotência (ignora op_id duplicado)
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR IGNORE INTO global_op_log 
                     (op_id, actor_id, entity_type, entity_id, action, payload, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (op['op_id'], op['actor_id'], op['entity_type'], op['entity_id'], 
-                      op['action'], json.dumps(op['payload']), op['timestamp']))
-                if cursor.rowcount > 0: inserted += 1
+                """,
+                    (
+                        op["op_id"],
+                        op["actor_id"],
+                        op["entity_type"],
+                        op["entity_id"],
+                        op["action"],
+                        json.dumps(op["payload"]),
+                        op["timestamp"],
+                    ),
+                )
+                if cursor.rowcount > 0:
+                    inserted += 1
             except sqlite3.Error as e:
                 print(f"Hub Error on push: {e}")
         self.conn.commit()
@@ -42,18 +54,20 @@ class HubRepo:
 
     def pull_ops(self, cursor_seq: int) -> list:
         cursor = self.conn.execute(
-            "SELECT * FROM global_op_log WHERE hub_seq > ? ORDER BY hub_seq ASC", 
-            (cursor_seq,)
+            "SELECT * FROM global_op_log WHERE hub_seq > ? ORDER BY hub_seq ASC",
+            (cursor_seq,),
         )
         rows = cursor.fetchall()
-        
+
         result = []
         for r in rows:
             d = dict(r)
-            d['payload'] = json.loads(d['payload']) # Converte string de volta para dict
+            d["payload"] = json.loads(
+                d["payload"]
+            )  # Converte string de volta para dict
             result.append(d)
         return result
-    
+
     # NOVO MÉTODO (Adicione no final da classe HubRepo)
     def close(self):
         """Fecha a conexão com o banco para liberar o arquivo no Windows."""
