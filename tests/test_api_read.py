@@ -101,7 +101,3 @@ class TestReadRepository(unittest.TestCase):
         # O sistema deve pegar o H1 como título
         if notes:
             self.assertEqual(notes[0]["title"], "My Header")
-
-
-if __name__ == "__main__":
-    unittest.main()

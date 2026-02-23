@@ -25,7 +25,3 @@ class TestCortexLogic(unittest.TestCase):
             # Esperado falhar sem API Key no teste unitário puro
             pass
         self.mock_memory.retrieve.assert_called_with("Teste")
-
-
-if __name__ == "__main__":
-    unittest.main()

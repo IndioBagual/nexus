@@ -1,4 +1,7 @@
 fastapi
 uvicorn
 requests
-pytest
+google-genai
+python-dotenv
+apscheduler
+python-slugify
