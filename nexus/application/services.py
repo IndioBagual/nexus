@@ -1,6 +1,6 @@
 import logging
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, ValidationError
+from typing import List, Optional
 from nexus.domain.entities import Expense, Task, Note
 from nexus.domain.ports import ExpenseRepository, TaskRepository, NoteRepository, RPGRepository, CortexProvider
 from nexus.domain.events import *
@@ -14,6 +14,42 @@ class ExecutionReport(BaseModel):
     events_emitted: List[str] = []
     messages: List[str] = []
     errors: List[str] = []
+
+# ============================================================================
+# --- SAFETY SCHEMAS (Allowlist & Validation) ---
+# ============================================================================
+
+class AddExpenseArgs(BaseModel):
+    amount: float
+    category: str
+    description: str
+    currency: str = "BRL"
+
+class AddTaskArgs(BaseModel):
+    title: str
+    priority: str = "medium"
+    status: str = "TODO"
+    due_date: Optional[str] = None
+
+class CreateNoteArgs(BaseModel):
+    content: str
+    title: str = "Untitled Note"
+    tags: List[str] = []
+
+class LogRpgActionArgs(BaseModel):
+    action_type: str
+    quantity: float = 1.0
+    description: str
+    attribute: Optional[str] = None
+
+ALLOWED_ACTIONS = {
+    'add_expense': AddExpenseArgs,
+    'add_task': AddTaskArgs,
+    'create_note': CreateNoteArgs,
+    'log_rpg_action': LogRpgActionArgs
+}
+
+# ============================================================================
 
 class NexusKernel:
     def __init__(self, 
@@ -29,9 +65,8 @@ class NexusKernel:
         self.rpg_repo = rpg_repo
         self.cortex = cortex
         self.bus = bus
-        self.rpg_engine = RPGEngine() # Instancia o motor lógico
+        self.rpg_engine = RPGEngine() 
         
-        # Registrar listeners
         self.bus.subscribe(EVENT_EXPENSE_ADDED, self._on_expense_added)
         self.bus.subscribe(EVENT_TASK_CREATED, self._on_task_created)
         self.bus.subscribe(EVENT_NOTE_CREATED, self._on_note_created)
@@ -50,15 +85,43 @@ class NexusKernel:
             action = intent.get('action')
             params = intent.get('params') or {}
             
+            # 1. Tratamento Direto de Pergunta da IA
             if action == 'ask_user':
                 msg = f"❓ CÓRTEX: {params.get('question')}"
                 logger.info(msg)
                 report.messages.append(msg)
                 continue
 
+            # 2. Segurança: Blocklist / Allowlist
+            if action not in ALLOWED_ACTIONS:
+                msg = f"⚠️ Ação de segurança ativada: A ferramenta '{action}' não existe ou foi bloqueada."
+                logger.warning(msg)
+                report.errors.append(msg)
+                continue
+
+            # 3. Segurança: Validação Estrita via Pydantic
             try:
+                SchemaClass = ALLOWED_ACTIONS[action]
+                validated_params = SchemaClass(**params)
+            except ValidationError as e:
+                # Extrai os erros para formar uma mensagem limpa ao invés de estourar a API
+                missing = [err['loc'][0] for err in e.errors() if err['type'] == 'missing']
+                invalid = [err['loc'][0] for err in e.errors() if err['type'] != 'missing']
+                
+                clarification = f"❓ CÓRTEX: Faltam detalhes para processar '{action}'."
+                if missing: clarification += f" Preciso saber: {', '.join(map(str, missing))}."
+                if invalid: clarification += f" Os dados parecem incorretos: {', '.join(map(str, invalid))}."
+                
+                logger.info(clarification)
+                report.messages.append(clarification)
+                continue # Pula a execução desta ferramenta e pede ajuda ao usuário
+
+            # 4. Execução Segura (HitL bypassado apenas se os dados forem perfeitos)
+            try:
+                safe_data = validated_params.model_dump()
+
                 if action == 'add_expense':
-                    expense = Expense(**params)
+                    expense = Expense(**safe_data)
                     eid = self.expense_repo.add(expense)
                     self.bus.publish(Event(EVENT_EXPENSE_ADDED, {"id": eid, "amount": expense.amount}))
                     report.actions_executed.append(action)
@@ -68,7 +131,7 @@ class NexusKernel:
                     report.messages.append(msg)
                 
                 elif action == 'add_task':
-                    task = Task(**params)
+                    task = Task(**safe_data)
                     tid = self.task_repo.add(task)
                     self.bus.publish(Event(EVENT_TASK_CREATED, {"id": tid, "priority": task.priority}))
                     report.actions_executed.append(action)
@@ -78,8 +141,7 @@ class NexusKernel:
                     report.messages.append(msg)
                     
                 elif action == 'create_note':
-                    note = Note(**params)
-                    if not note.title: note.title = "Untitled Note" 
+                    note = Note(**safe_data)
                     path = self.note_repo.save(note)
                     self.bus.publish(Event(EVENT_NOTE_CREATED, {"filepath": path, "tags": note.tags}))
                     report.actions_executed.append(action)
@@ -89,51 +151,36 @@ class NexusKernel:
                     report.messages.append(msg)
 
                 elif action == 'log_rpg_action':
-                    # Ação manual: Exercício, Meditação, etc.
                     attr_map = {
-                        "exercise": "STR",
-                        "meditation": "WIS",
-                        "social": "CHA",
-                        "reading": "INT",
-                        "study": "INT"
+                        "exercise": "STR", "meditation": "WIS", 
+                        "social": "CHA", "reading": "INT", "study": "INT"
                     }
-                    action_type = params.get('action_type')
-                    # Usa atributo explícito ou infere
-                    attr_name = params.get('attribute') or attr_map.get(action_type, "WIS")
+                    action_type = safe_data.get('action_type')
+                    attr_name = safe_data.get('attribute') or attr_map.get(action_type, "WIS")
                     
-                    # Cálculo arbitrário para manual action (Ex: 1 xp por minuto/unidade)
-                    qty = params.get('quantity', 1)
-                    xp_amount = int(qty) * 1 # 1 XP por unidade como base
-                    if xp_amount < 5: xp_amount = 5 # Mínimo 5 XP
+                    qty = safe_data.get('quantity', 1)
+                    xp_amount = max(int(qty) * 1, 5) # Mínimo de 5 XP
 
-                    # Aplica XP direto
-                    self._apply_xp(attr_name, xp_amount, "MANUAL", "user_input", params.get('description'))
+                    self._apply_xp(attr_name, xp_amount, "MANUAL", "user_input", safe_data.get('description'))
                     report.actions_executed.append(action)
-                    msg = f"⚔️ [RPG] Ação manual registrada: {params.get('description')}"
+                    msg = f"⚔️ [RPG] Ação manual registrada: {safe_data.get('description')}"
                     logger.info(msg)
                     report.messages.append(msg)
 
             except Exception as e:
-                err_msg = f"❌ Erro ao executar {action}: {str(e)}"
+                err_msg = f"❌ Erro interno ao executar {action}: {str(e)}"
                 logger.error(err_msg)
                 report.errors.append(err_msg)
 
         return report
 
     # --- RPG Helpers ---
-    
     def _apply_xp(self, attr_name: str, amount: int, source_type: str, source_id: str, desc: str):
-        # 1. Carrega Estado
         attr = self.rpg_repo.get_attribute(attr_name)
-        
-        # 2. Processa Lógica (Domain)
         events = self.rpg_engine.process_xp_gain(attr, amount)
-        
-        # 3. Salva Estado (Adapter)
         self.rpg_repo.update_attribute(attr)
         self.rpg_repo.log_xp_history(attr_name, amount, source_type, source_id, desc)
         
-        # 4. Feedback
         for evt in events:
             if evt.name == EVENT_RPG_XP_GAINED:
                 logger.info(f"✨ [RPG] +{evt.payload['amount']} {evt.payload['attribute']} (Total: {evt.payload['total_xp']})")
@@ -141,17 +188,12 @@ class NexusKernel:
                 logger.info(f"🎉 [RPG] LEVEL UP! {evt.payload['attribute']} alcançou Nível {evt.payload['new_level']}!")
 
     # --- Event Handlers ---
-
     def _on_expense_added(self, event: Event):
-        # Regra: Registrar gastos aumenta Sabedoria (WIS)
         self._apply_xp("WIS", 5, "TREASURY", str(event.payload['id']), "Despesa registrada")
 
     def _on_task_created(self, event: Event):
-        # Regra: Planejar tarefas aumenta Sabedoria (WIS) ou Intelecto se for estudo?
-        # Por enquanto, simplificado: Planejamento = WIS
         xp = 10 if event.payload.get('priority') == 'high' else 5
         self._apply_xp("WIS", xp, "CHRONOS", str(event.payload['id']), "Tarefa planejada")
 
     def _on_note_created(self, event: Event):
-        # Regra: Notas aumentam Intelecto (INT)
         self._apply_xp("INT", 10, "LIBRARY", event.payload['filepath'], "Conhecimento capturado")
